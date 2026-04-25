@@ -1,0 +1,289 @@
+version: 2
+
+models:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # stg_ga4__events
+  # ──────────────────────────────────────────────────────────────────────────
+  - name: stg_ga4__events
+    description: >
+      Flattened, typed staging view over the raw GA4 date-sharded event tables.
+      One row per event. No business logic — extraction and casting only.
+      Date range is controlled by the start_date and end_date dbt vars.
+
+    columns:
+
+      # ── Identity & keys ────────────────────────────────────────────────────
+      - name: event_key
+        description: >
+          Surrogate key: MD5 hash of (user_pseudo_id, event_timestamp, event_name).
+          Not guaranteed globally unique due to possible GA4 duplicate event fires;
+          deduplication is handled in int_sessions.
+        data_tests:
+          - not_null
+
+      - name: session_key
+        description: >
+          Composite key: user_pseudo_id + '_' + ga_session_id.
+          Used as the join key between all session-grain models.
+        data_tests:
+          - not_null
+
+      - name: event_date
+        description: Calendar date the event occurred (DATE).
+        data_tests:
+          - not_null
+          - is_valid_date:
+              min_date: '2020-11-01'
+              max_date: '2021-01-31'
+
+      - name: event_ts
+        description: Full UTC timestamp of the event (TIMESTAMP).
+        data_tests:
+          - not_null
+
+      - name: event_name
+        description: GA4 event type string (e.g. page_view, purchase).
+        data_tests:
+          - not_null
+          - accepted_values:
+              # Warn only — GA4 allows custom event names beyond this list.
+              severity: warn
+              values:
+                - page_view
+                - session_start
+                - user_engagement
+                - scroll
+                - click
+                - view_item
+                - view_item_list
+                - select_item
+                - add_to_cart
+                - remove_from_cart
+                - view_cart
+                - begin_checkout
+                - add_shipping_info
+                - add_payment_info
+                - purchase
+                - refund
+                - search
+                - view_promotion
+                - select_promotion
+                - login
+                - sign_up
+              quote: true
+
+      - name: user_pseudo_id
+        description: >
+          Obfuscated device identifier — the primary user key in this dataset.
+          One human may produce multiple pseudo_ids across browsers or devices.
+        data_tests:
+          - not_null
+
+      - name: user_id
+        description: >
+          Site-assigned user ID passed via gtag. Mostly NULL in this obfuscated
+          dataset. When present, enables cross-device identity resolution.
+
+      # ── Session params ──────────────────────────────────────────────────────
+      - name: ga_session_id
+        description: >
+          Integer session ID scoped within a user_pseudo_id. Combine with
+          user_pseudo_id (via session_key) to get a globally unique session.
+
+      - name: ga_session_number
+        description: Monotonically increasing session count per user.
+
+      - name: session_engaged
+        description: >
+          1 if the session is "engaged" per GA4 definition (10s+ duration,
+          2+ page views, or a conversion event). 0 otherwise.
+
+      - name: is_entrance
+        description: 1 if this event is the first in the session, NULL otherwise.
+
+      - name: engagement_time_msec
+        description: Cumulative engaged time in milliseconds up to this event.
+
+      # ── Page ───────────────────────────────────────────────────────────────
+      - name: page_location
+        description: Full page URL including query parameters.
+
+      - name: page_title
+        description: HTML page title at the time of the event.
+
+      - name: page_referrer
+        description: Referrer URL (previous page).
+
+      - name: search_term
+        description: Search query string; non-null only on search events.
+
+      # ── Device ─────────────────────────────────────────────────────────────
+      - name: device_category
+        description: "Device class: desktop, mobile, or tablet."
+        data_tests:
+          - accepted_values:
+              severity: warn
+              values: ['desktop', 'mobile', 'tablet', 'smart tv', '(not set)']
+              quote: true
+
+      - name: device_os
+        description: Operating system name (e.g. Windows, Android, iOS, Macintosh).
+
+      - name: device_browser
+        description: Browser name (e.g. Chrome, Safari, Firefox).
+
+      - name: device_language
+        description: Browser language setting (e.g. en-us).
+
+      # ── Geography ──────────────────────────────────────────────────────────
+      - name: geo_country
+        description: Country name derived from IP geolocation.
+
+      - name: geo_region
+        description: Region / state / province.
+
+      - name: geo_city
+        description: City name.
+
+      - name: geo_continent
+        description: Continent name (Americas, Europe, Asia, etc.).
+
+      # ── Traffic source ─────────────────────────────────────────────────────
+      - name: traffic_medium
+        description: >
+          First-touch acquisition medium stored at the user level (e.g. organic,
+          cpc, referral, email, (none)). Does NOT update mid-session.
+
+      - name: traffic_source
+        description: First-touch traffic source (e.g. google, bing, newsletter).
+
+      - name: traffic_campaign
+        description: First-touch UTM campaign name.
+
+      # ── Ecommerce ──────────────────────────────────────────────────────────
+      - name: transaction_id
+        description: Unique order identifier. Non-null only on purchase events.
+
+      - name: purchase_revenue_usd
+        description: >
+          Order revenue in USD as reported by GA4. Non-null only on purchase
+          events. Excludes tax and shipping.
+        data_tests:
+          - not_negative
+
+      - name: ecommerce_unique_items
+        description: Number of distinct SKUs in the order. Non-null on purchase events.
+
+      # ── Boolean flags ──────────────────────────────────────────────────────
+      - name: is_session_start
+        description: TRUE if event_name = 'session_start'.
+        data_tests:
+          - not_null
+
+      - name: is_view_item
+        description: TRUE if event_name = 'view_item'.
+        data_tests:
+          - not_null
+
+      - name: is_add_to_cart
+        description: TRUE if event_name = 'add_to_cart'.
+        data_tests:
+          - not_null
+
+      - name: is_begin_checkout
+        description: TRUE if event_name = 'begin_checkout'.
+        data_tests:
+          - not_null
+
+      - name: is_purchase
+        description: TRUE if event_name = 'purchase'.
+        data_tests:
+          - not_null
+
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # stg_ga4__event_items
+  # ──────────────────────────────────────────────────────────────────────────
+  - name: stg_ga4__event_items
+    description: >
+      One row per item per ecommerce event. Created by UNNESTing the items
+      ARRAY from the raw GA4 source. Only includes ecommerce event types
+      (view_item, add_to_cart, purchase, etc.). Feeds product-level fact tables.
+
+    columns:
+
+      - name: item_event_key
+        description: >
+          Surrogate key: MD5 hash of (user_pseudo_id, event_timestamp,
+          event_name, item_id). Uniquely identifies one item within one event.
+        data_tests:
+          - not_null
+
+      - name: event_date
+        description: Calendar date the event occurred (DATE).
+        data_tests:
+          - not_null
+
+      - name: event_ts
+        description: UTC timestamp of the event.
+        data_tests:
+          - not_null
+
+      - name: event_name
+        description: GA4 event type (scoped to ecommerce events only in this model).
+        data_tests:
+          - not_null
+          - accepted_values:
+              values:
+                - view_item
+                - view_item_list
+                - select_item
+                - add_to_cart
+                - remove_from_cart
+                - view_cart
+                - begin_checkout
+                - add_shipping_info
+                - add_payment_info
+                - purchase
+                - refund
+              quote: true
+
+      - name: user_pseudo_id
+        description: Obfuscated device identifier — primary user key.
+        data_tests:
+          - not_null
+
+      - name: session_key
+        description: Composite session key (user_pseudo_id + ga_session_id).
+        data_tests:
+          - not_null
+
+      - name: item_id
+        description: Product SKU or identifier as configured in the GA4 tag.
+
+      - name: item_name
+        description: Product display name.
+
+      - name: item_category
+        description: Primary product category.
+
+      - name: item_price_usd
+        description: Unit price in USD at time of event.
+        data_tests:
+          - not_negative
+
+      - name: quantity
+        description: Number of units involved in the event.
+
+      - name: item_revenue_usd
+        description: >
+          Line-item revenue in USD (price × quantity). Non-null primarily
+          on purchase events.
+        data_tests:
+          - not_negative
+
+      - name: item_list_name
+        description: >
+          Product list / placement name (e.g. "Related products", "Search results").
+          Useful for analysing which product placements drive add-to-cart.

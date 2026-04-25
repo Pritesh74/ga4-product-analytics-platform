@@ -1,0 +1,34 @@
+# profiles.yml — dbt connection profile for BigQuery.
+#
+# TWO ways to use this file:
+#   1. Copy to ~/.dbt/profiles.yml  (standard dbt convention)
+#   2. Leave here and pass --profiles-dir dbt/ on every dbt command
+#      (used by scripts/run_dbt.sh — no copy needed)
+#
+# Authentication: BigQuery Sandbox uses Application Default Credentials (ADC).
+# Run once: gcloud auth application-default login
+# No service account key file required.
+
+ga4_analytics:
+  target: dev
+  outputs:
+
+    dev:
+      type: bigquery
+      method: oauth                   # uses ADC — no key file needed
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: product_analytics_dev  # default dataset; models land in custom +schema datasets
+      threads: 4
+      timeout_seconds: 300
+      location: US
+      priority: interactive           # interactive = faster feedback, counts toward free tier
+
+    prod:
+      type: bigquery
+      method: oauth
+      project: "{{ env_var('GCP_PROJECT_ID') }}"
+      dataset: product_analytics_dev
+      threads: 8
+      timeout_seconds: 600
+      location: US
+      priority: batch                 # batch = lower cost, slower start

@@ -1,0 +1,142 @@
+version: 2
+
+sources:
+
+  - name: ga4_raw
+    description: >
+      Google Analytics 4 obfuscated sample dataset from the Google Merchandise
+      Store, hosted as a public BigQuery dataset.  Covers approximately
+      November 2020 through January 2021.
+
+      The dataset contains ~1.2 million total events across 92 date-sharded
+      tables (events_20201101 through events_20210131).  Each row is one
+      GA4 event fired by one browser session.
+
+      Key schema notes:
+       - event_params is a REPEATED RECORD — extract fields with subquery UNNEST.
+       - items is a REPEATED RECORD — unnest with stg_ga4__event_items.
+       - user_pseudo_id is device-level, not a true user_id.
+       - traffic_source is first-touch only; it does not change mid-session.
+       - All monetary fields are in USD (_in_usd suffix) or local currency.
+
+    database: bigquery-public-data
+    schema: ga4_obfuscated_sample_ecommerce
+
+    # Source freshness cannot be declared on date-sharded wildcard tables
+    # via dbt's native freshness check. Use the Data Quality dashboard tab
+    # to monitor max(event_date) in downstream mart tables instead.
+
+    tables:
+
+      - name: events
+        description: >
+          Wildcard reference to all events_YYYYMMDD date-sharded tables.
+          In staging models, filtered via _TABLE_SUFFIX BETWEEN to control
+          which tables are scanned (cost control for BigQuery Sandbox).
+        identifier: events_*
+
+        columns:
+
+          # ── Top-level fields ──────────────────────────────────────────────
+          - name: event_date
+            description: >
+              Event date string in YYYYMMDD format (matches the _TABLE_SUFFIX).
+              Cast to DATE in staging via PARSE_DATE('%Y%m%d', event_date).
+
+          - name: event_timestamp
+            description: >
+              Microseconds since Unix epoch (UTC). Convert with
+              TIMESTAMP_MICROS(event_timestamp) in staging.
+
+          - name: event_name
+            description: >
+              GA4 event type. Automatic events: page_view, session_start,
+              user_engagement, scroll, click.  Ecommerce events: view_item,
+              add_to_cart, begin_checkout, purchase, refund.
+
+          - name: user_pseudo_id
+            description: >
+              Obfuscated device/browser identifier assigned by GA4. Used as
+              the primary user key throughout this project. One human can have
+              multiple pseudo_ids across browsers, devices, or incognito windows.
+
+          - name: user_id
+            description: >
+              Custom user ID set via gtag('set', 'user_id', ...). Mostly NULL
+              in this obfuscated public dataset.
+
+          # ── Nested RECORDs ────────────────────────────────────────────────
+          - name: event_params
+            description: >
+              REPEATED RECORD of key-value pairs attached to each event.
+              Key params extracted in staging:
+                ga_session_id (int)       — session identifier
+                ga_session_number (int)   — session count per user
+                page_location (string)    — full URL
+                page_title (string)       — HTML title
+                page_referrer (string)    — referring URL
+                session_engaged (int)     — 1 if engaged session
+                engagement_time_msec (int)— cumulative engaged time
+                entrances (int)           — 1 if first event in session
+                search_term (string)      — on search events
+                percent_scrolled (int)    — on scroll events
+
+          - name: user_properties
+            description: >
+              REPEATED RECORD of user-level properties set via gtag.
+              Not extracted in staging (mostly empty in obfuscated dataset).
+
+          - name: device
+            description: >
+              RECORD containing device information:
+                category — desktop / mobile / tablet
+                operating_system — Windows, iOS, Android, Macintosh, etc.
+                web_info.browser — Chrome, Safari, Firefox, etc.
+                language — browser language code
+                mobile_brand_name — Samsung, Apple, etc.
+                mobile_model_name — specific device model
+
+          - name: geo
+            description: >
+              RECORD containing IP-derived geography:
+                country, region, city, continent, sub_continent
+
+          - name: traffic_source
+            description: >
+              RECORD containing FIRST-TOUCH attribution at the user level.
+              Does not update within a session or across sessions.
+                medium — organic, cpc, referral, email, (none)
+                source — google, bing, direct, newsletter, etc.
+                name   — UTM campaign name
+
+          - name: user_ltv
+            description: >
+              RECORD with revenue (FLOAT64) and currency (STRING).
+              Represents the user's total lifetime revenue as tracked by GA4.
+
+          - name: user_first_touch_timestamp
+            description: >
+              Microseconds since epoch when the user was first seen.
+              Convert with TIMESTAMP_MICROS().
+
+          - name: ecommerce
+            description: >
+              RECORD containing order-level ecommerce data:
+                transaction_id         — unique order ID (purchase events only)
+                purchase_revenue_in_usd — net revenue USD (excludes tax/shipping)
+                purchase_revenue        — net revenue in local currency
+                refund_value            — refund amount
+                shipping_value          — shipping charge
+                tax_value               — tax amount
+                unique_items            — distinct SKU count in order
+
+          - name: items
+            description: >
+              REPEATED RECORD of line-item product details. One entry per SKU.
+              Unnested in stg_ga4__event_items for product-level analysis.
+              Key fields per item:
+                item_id, item_name, item_brand, item_variant
+                item_category, item_category2, item_category3
+                price_in_usd, quantity, item_revenue_in_usd
+                item_list_name, item_list_index (for list attribution)
+                promotion_id, promotion_name (for promo analysis)

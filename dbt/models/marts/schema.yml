@@ -1,0 +1,507 @@
+version: 2
+
+models:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Dimension Tables
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - name: dim_users
+    description: >
+      User dimension. One row per user_pseudo_id.
+      Combines all lifetime activity from int_user_spine with channel_group
+      and cohort_month for slicing in retention and LTV analyses.
+      Business questions: Who are our users? Where do they come from?
+      Which cohorts are most valuable?
+
+    columns:
+
+      - name: user_pseudo_id
+        description: Obfuscated device identifier — primary key for this dimension.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: first_seen_date
+        description: Date of the user's first event in the dataset.
+        data_tests:
+          - not_null
+
+      - name: cohort_month
+        description: >
+          DATE_TRUNC(first_seen_date, MONTH). Acquisition cohort used in
+          mart_retention_cohorts and mart_ltv_by_channel.
+        data_tests:
+          - not_null
+
+      - name: channel_group
+        description: >
+          Simplified channel grouping derived from traffic_medium:
+          organic_search, paid_search, email, referral, social, affiliate,
+          direct, other. Consistent logic with fct_sessions.channel_group.
+
+      - name: traffic_medium
+        description: Raw first-touch acquisition medium (GA4 user property).
+
+      - name: traffic_source
+        description: Raw first-touch traffic source (GA4 user property).
+
+      - name: first_device_category
+        description: Device category at first touch (desktop, mobile, tablet).
+
+      - name: first_geo_country
+        description: Country at first touch.
+
+      - name: total_sessions
+        description: Lifetime count of distinct sessions.
+
+      - name: total_orders
+        description: Lifetime count of distinct orders (non-null transaction_ids).
+
+      - name: total_revenue_usd
+        description: Lifetime purchase revenue in USD.
+        data_tests:
+          - not_negative
+
+      - name: is_purchaser
+        description: TRUE if the user placed at least one order.
+
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Fact Tables
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - name: fct_sessions
+    description: >
+      Session fact table. One row per (user_pseudo_id, ga_session_id).
+      Source: int_sessions + channel_group.
+      Primary query surface for: session volume, engagement, funnel
+      activity per session, device/geo breakdowns, and conversion rate.
+
+    columns:
+
+      - name: session_key
+        description: Composite key (user_pseudo_id + '_' + ga_session_id). Primary key for this table.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: user_pseudo_id
+        description: Obfuscated device identifier.
+        data_tests:
+          - not_null
+
+      - name: session_date
+        description: Calendar date of the session (date of first event).
+        data_tests:
+          - not_null
+
+      - name: channel_group
+        description: >
+          Simplified channel grouping (organic_search, paid_search, email,
+          referral, social, affiliate, direct, other).
+
+      - name: is_engaged
+        description: TRUE if GA4 marked the session as engaged.
+
+      - name: has_purchase
+        description: TRUE if the session resulted in at least one purchase.
+
+      - name: session_revenue_usd
+        description: Purchase revenue (USD) in this session. Zero for non-converting sessions.
+        data_tests:
+          - not_negative
+
+      - name: page_view_count
+        description: Count of page_view events in the session.
+
+      - name: view_item_count
+        description: Count of view_item events in the session.
+
+      - name: add_to_cart_count
+        description: Count of add_to_cart events in the session.
+
+      - name: begin_checkout_count
+        description: Count of begin_checkout events in the session.
+
+      - name: session_duration_seconds
+        description: Elapsed seconds from first to last event in the session.
+
+  - name: fct_purchases
+    description: >
+      Purchase fact table. One row per purchase event.
+      Source: stg_ga4__events WHERE is_purchase = true.
+      Business questions: What is daily/weekly revenue? What is average order value?
+      Which channels and devices drive the most purchases?
+      Note: ~23 rows have null transaction_id (known GA4 sample gap; see
+      assert_purchase_has_transaction_id test).
+
+    columns:
+
+      - name: event_key
+        description: Surrogate event key (MD5 of user_pseudo_id, event_timestamp, event_name).
+        data_tests:
+          - not_null
+          - unique
+
+      - name: user_pseudo_id
+        description: Obfuscated device identifier.
+        data_tests:
+          - not_null
+
+      - name: event_date
+        description: Date of the purchase event.
+        data_tests:
+          - not_null
+
+      - name: transaction_id
+        description: Unique order ID. Null for ~23 events in the GA4 sample dataset.
+
+      - name: purchase_revenue_usd
+        description: Order revenue in USD (excludes tax and shipping). Zero-coalesced.
+        data_tests:
+          - not_negative
+
+      - name: shipping_value
+        description: Shipping value in USD. Zero-coalesced.
+        data_tests:
+          - not_negative
+
+      - name: ecommerce_unique_items
+        description: Number of distinct SKUs in the order as reported by GA4.
+
+      - name: device_category
+        description: Device used to complete the purchase.
+
+      - name: geo_country
+        description: Country of the user at time of purchase.
+
+  - name: fct_product_views
+    description: >
+      Product view fact. One row per view_item event.
+      Item details sourced from items[SAFE_OFFSET(0)] (view_item events are
+      single-item in GA4).
+      Business questions: Which products are viewed most? What is the
+      view-to-cart rate per product? How does price affect view volume?
+
+    columns:
+
+      - name: event_key
+        description: Surrogate event key — primary key for this table.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: user_pseudo_id
+        description: Obfuscated device identifier.
+        data_tests:
+          - not_null
+
+      - name: event_date
+        description: Date of the product view.
+        data_tests:
+          - not_null
+
+      - name: item_id
+        description: Product SKU of the viewed item.
+
+      - name: item_name
+        description: Product display name of the viewed item.
+
+      - name: item_category
+        description: Product category of the viewed item.
+
+      - name: item_price_usd
+        description: Unit price of the viewed product in USD.
+
+      - name: page_location
+        description: Full URL of the product page at time of view.
+
+  - name: fct_add_to_cart
+    description: >
+      Add-to-cart fact. One row per add_to_cart event.
+      Item details sourced from items[SAFE_OFFSET(0)].
+      Business questions: Which products get added to cart most? What is
+      the cart-to-checkout rate? Is there price sensitivity in cart adds?
+
+    columns:
+
+      - name: event_key
+        description: Surrogate event key — primary key for this table.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: user_pseudo_id
+        description: Obfuscated device identifier.
+        data_tests:
+          - not_null
+
+      - name: event_date
+        description: Date of the add-to-cart event.
+        data_tests:
+          - not_null
+
+      - name: item_id
+        description: Product SKU added to cart.
+
+      - name: item_name
+        description: Product name added to cart.
+
+      - name: item_price_usd
+        description: Unit price at time of add-to-cart.
+
+      - name: item_quantity
+        description: Number of units added.
+
+  - name: fct_begin_checkout
+    description: >
+      Begin-checkout fact. One row per begin_checkout event.
+      Marks entry into the checkout flow.
+      Business questions: What is the cart-to-checkout conversion rate?
+      Which channels and devices have the highest checkout initiation rates?
+
+    columns:
+
+      - name: event_key
+        description: Surrogate event key — primary key for this table.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: user_pseudo_id
+        description: Obfuscated device identifier.
+        data_tests:
+          - not_null
+
+      - name: event_date
+        description: Date of the begin_checkout event.
+        data_tests:
+          - not_null
+
+      - name: device_category
+        description: Device used to initiate checkout.
+
+      - name: geo_country
+        description: Country of the user at checkout initiation.
+
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Aggregated Mart Tables
+  # ──────────────────────────────────────────────────────────────────────────
+
+  - name: mart_daily_funnel
+    description: >
+      Daily funnel aggregation. One row per (event_date, funnel_stage).
+      Stages: session_start (1) → view_item (2) → add_to_cart (3)
+              → begin_checkout (4) → purchase (5).
+      Business questions: How does daily traffic convert through the funnel?
+      Where is the largest drop-off? How do these rates trend over time?
+      Drop-off between stages is computed downstream as:
+        1 - (stage_n_users / stage_n-1_users)
+
+    columns:
+
+      - name: event_date
+        description: Calendar date of the funnel activity.
+        data_tests:
+          - not_null
+
+      - name: funnel_stage
+        description: Stage label (session_start, view_item, add_to_cart, begin_checkout, purchase).
+        data_tests:
+          - not_null
+          - accepted_values:
+              values:
+                - session_start
+                - view_item
+                - add_to_cart
+                - begin_checkout
+                - purchase
+
+      - name: funnel_stage_order
+        description: Integer sort order for funnel stages (1–5).
+        data_tests:
+          - not_null
+
+      - name: unique_users
+        description: Distinct user_pseudo_id count at this stage on this date.
+
+      - name: unique_sessions
+        description: Distinct session_key count at this stage on this date.
+
+      - name: total_events
+        description: Total event count at this stage on this date.
+
+  - name: mart_retention_cohorts
+    description: >
+      Monthly purchase retention cohort matrix.
+      One row per (cohort_month, months_since_acquisition).
+      cohort_month = DATE_TRUNC(first_seen_date, MONTH) from dim_users.
+      months_since_acquisition = months elapsed between acquisition and a
+      purchase-active month.
+      Business questions: Do users return to buy again? Which acquisition
+      cohorts have the highest long-term retention? Is retention improving?
+      Dataset note: GA4 sample covers only Nov 2020–Jan 2021 so the matrix
+      has max 2 months of follow-up (triangular shape is expected).
+
+    columns:
+
+      - name: cohort_month
+        description: Acquisition cohort — DATE_TRUNC of the user's first_seen_date.
+        data_tests:
+          - not_null
+
+      - name: months_since_acquisition
+        description: >
+          Months elapsed between cohort_month and the month in which the
+          user made a purchase. 0 = purchased in their acquisition month.
+        data_tests:
+          - not_null
+
+      - name: cohort_size
+        description: Total users in the acquisition cohort (all users, not just purchasers).
+
+      - name: retained_users
+        description: Users from the cohort who made at least one purchase in this period.
+
+      - name: retention_rate
+        description: retained_users / cohort_size. Computed with SAFE_DIVIDE (NULL-safe).
+
+  - name: mart_ltv_by_channel
+    description: >
+      Customer lifetime value summary by acquisition channel.
+      One row per (channel_group, traffic_medium, traffic_source, cohort_month).
+      Business questions: Which channels produce the highest-value users?
+      What is the true LTV per acquired user by channel (including non-purchasers)?
+      Which channels have the best conversion rate?
+
+    columns:
+
+      - name: channel_group
+        description: >
+          Grouped channel label (organic_search, paid_search, email,
+          referral, social, affiliate, direct, other).
+        data_tests:
+          - not_null
+
+      - name: cohort_month
+        description: Acquisition cohort month.
+
+      - name: total_users
+        description: Total users acquired through this channel in this cohort month.
+
+      - name: purchasing_users
+        description: Users who placed at least one order.
+
+      - name: purchase_rate
+        description: purchasing_users / total_users. Channel e-commerce conversion rate.
+
+      - name: total_revenue_usd
+        description: Total lifetime revenue generated by users from this channel.
+
+      - name: avg_revenue_per_user
+        description: >
+          total_revenue_usd / total_users. Includes non-purchasers.
+          The most complete measure of channel LTV.
+
+      - name: avg_revenue_per_purchaser
+        description: total_revenue_usd / purchasing_users. Purchaser-only LTV.
+
+      - name: avg_orders_per_purchaser
+        description: Average number of orders placed by purchasing users.
+
+  - name: mart_device_performance
+    description: >
+      Session-level metrics aggregated by device.
+      One row per (session_date, device_category, device_os, device_browser).
+      Business questions: Do mobile users convert at the same rate as desktop?
+      Which browsers drive the highest revenue per session?
+      Is there a device-specific UX problem hiding in engagement rates?
+
+    columns:
+
+      - name: session_date
+        description: Calendar date of the sessions.
+        data_tests:
+          - not_null
+
+      - name: device_category
+        description: Device class (desktop, mobile, tablet).
+        data_tests:
+          - not_null
+
+      - name: total_sessions
+        description: Total sessions for this device segment on this date.
+
+      - name: unique_users
+        description: Distinct users for this device segment on this date.
+
+      - name: engaged_sessions
+        description: Sessions GA4 marked as engaged.
+
+      - name: engagement_rate
+        description: engaged_sessions / total_sessions.
+
+      - name: total_view_items
+        description: Total view_item events in sessions for this segment.
+
+      - name: total_add_to_cart
+        description: Total add_to_cart events in sessions for this segment.
+
+      - name: converting_sessions
+        description: Sessions that resulted in a purchase.
+
+      - name: session_conversion_rate
+        description: converting_sessions / total_sessions.
+
+      - name: total_revenue_usd
+        description: Total purchase revenue for this segment on this date.
+
+      - name: revenue_per_session
+        description: total_revenue_usd / total_sessions.
+
+  - name: mart_geo_performance
+    description: >
+      Session-level metrics aggregated by geography.
+      One row per (session_date, geo_continent, geo_country, geo_region).
+      Business questions: Which countries drive the most revenue?
+      Where are session conversion rates lowest (geo targeting opportunity)?
+      How does engagement vary by continent?
+
+    columns:
+
+      - name: session_date
+        description: Calendar date of the sessions.
+        data_tests:
+          - not_null
+
+      - name: geo_continent
+        description: Continent of the sessions.
+
+      - name: geo_country
+        description: Country of the sessions.
+
+      - name: total_sessions
+        description: Total sessions for this geography on this date.
+
+      - name: unique_users
+        description: Distinct users in this geography on this date.
+
+      - name: engaged_sessions
+        description: Sessions GA4 marked as engaged.
+
+      - name: engagement_rate
+        description: engaged_sessions / total_sessions.
+
+      - name: converting_sessions
+        description: Sessions that resulted in a purchase.
+
+      - name: session_conversion_rate
+        description: converting_sessions / total_sessions.
+
+      - name: total_revenue_usd
+        description: Total purchase revenue for this geography on this date.
+
+      - name: revenue_per_session
+        description: total_revenue_usd / total_sessions.

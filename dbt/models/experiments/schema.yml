@@ -1,0 +1,61 @@
+version: 2
+
+models:
+  - name: exp_simulated_assignment
+    description: >
+      SIMULATED experiment assignment. Deterministic 50/50 variant split using
+      FARM_FINGERPRINT on user_pseudo_id + experiment salt. Eligible users are
+      those with ≥1 begin_checkout event during the experiment window
+      (2020-12-01 to 2021-01-31). Not real A/B test data.
+    columns:
+      - name: user_pseudo_id
+        description: GA4 user identifier
+        data_tests:
+          - not_null
+          - unique
+      - name: experiment_id
+        description: Experiment identifier
+        data_tests:
+          - not_null
+      - name: variant_id
+        description: 0 = control, 1 = treatment
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: [0, 1]
+              quote: false
+      - name: variant_name
+        description: control or treatment
+        data_tests:
+          - not_null
+          - accepted_values:
+              values: ['control', 'treatment']
+      - name: is_simulated
+        description: Always true — marks this as synthetic data
+        data_tests:
+          - not_null
+
+  - name: exp_simulated_results
+    description: >
+      SIMULATED experiment results. Per-variant aggregates of conversion rate,
+      revenue per user, and guardrail metrics. Join to exp_simulated_assignment
+      for user-level detail. Not real A/B test data.
+    columns:
+      - name: experiment_id
+        data_tests:
+          - not_null
+      - name: variant_name
+        data_tests:
+          - not_null
+          - unique
+          - accepted_values:
+              values: ['control', 'treatment']
+      - name: n_users
+        data_tests:
+          - not_null
+      - name: conversion_rate
+        data_tests:
+          - not_null
+      - name: is_simulated
+        data_tests:
+          - not_null

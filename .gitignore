@@ -1,0 +1,56 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+env/
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# ── Environment ───────────────────────────────────────────────────────────────
+.env
+*.env.local
+*.env.*.local
+
+# ── dbt ───────────────────────────────────────────────────────────────────────
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+dbt/.user.yml
+
+# ── Streamlit ─────────────────────────────────────────────────────────────────
+.streamlit/secrets.toml
+
+# ── macOS ─────────────────────────────────────────────────────────────────────
+.DS_Store
+**/.DS_Store
+
+# ── Credentials ───────────────────────────────────────────────────────────────
+*.json
+!dbt/seeds/*.json
+service_account*.json
+keyfile*.json
+application_default_credentials.json
+
+# ── Local tooling / session artifacts ────────────────────────────────────────
+.claude/
+
+# ── Notebooks ─────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+
+# ── IDEs ──────────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Screenshots: raw captures are local-only; only edited finals are committed ─
+screenshots/dashboard/raw/
+screenshots/portfolio/raw/

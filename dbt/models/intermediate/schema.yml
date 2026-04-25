@@ -1,0 +1,257 @@
+version: 2
+
+models:
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # int_sessions
+  # ──────────────────────────────────────────────────────────────────────────
+  - name: int_sessions
+    description: >
+      Session-grain view. One row per (user_pseudo_id, ga_session_id).
+      Aggregates all events within a session into engagement metrics,
+      funnel-stage counts, and conversion outcome.
+      Feeds fct_sessions (materialized table in ga4_marts).
+
+    columns:
+
+      - name: session_key
+        description: Composite key (user_pseudo_id + '_' + ga_session_id). Primary join key for all session-grain models.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: user_pseudo_id
+        description: Obfuscated device identifier — primary user key.
+        data_tests:
+          - not_null
+
+      - name: ga_session_id
+        description: GA4 integer session ID, scoped per user_pseudo_id.
+
+      - name: ga_session_number
+        description: Monotonically increasing session count per user.
+
+      - name: session_date
+        description: Calendar date of the session (date of the first event).
+        data_tests:
+          - not_null
+
+      - name: session_start_ts
+        description: UTC timestamp of the first event in the session.
+
+      - name: session_end_ts
+        description: UTC timestamp of the last event in the session.
+
+      - name: session_duration_seconds
+        description: Elapsed time in seconds from the first to the last event.
+
+      - name: traffic_medium
+        description: First-touch acquisition medium (user-level GA4 property, e.g. organic, cpc, email).
+
+      - name: traffic_source
+        description: First-touch traffic source (user-level GA4 property, e.g. google, bing).
+
+      - name: traffic_campaign
+        description: First-touch UTM campaign name.
+
+      - name: device_category
+        description: Device class at session start (desktop, mobile, tablet).
+
+      - name: device_os
+        description: Operating system at session start.
+
+      - name: device_browser
+        description: Browser at session start.
+
+      - name: geo_country
+        description: Country derived from IP geolocation at session start.
+
+      - name: geo_region
+        description: Region / state at session start.
+
+      - name: geo_city
+        description: City at session start.
+
+      - name: geo_continent
+        description: Continent at session start.
+
+      - name: is_engaged
+        description: >
+          TRUE if GA4 marked the session as engaged:
+          10+ seconds duration, 2+ page views, or a conversion event occurred.
+
+      - name: total_engagement_msec
+        description: Sum of engagement_time_msec across all events in the session.
+
+      - name: page_view_count
+        description: Number of page_view events in the session.
+
+      - name: view_item_count
+        description: Number of view_item events in the session.
+
+      - name: add_to_cart_count
+        description: Number of add_to_cart events in the session.
+
+      - name: begin_checkout_count
+        description: Number of begin_checkout events in the session.
+
+      - name: purchase_count
+        description: Number of purchase events in the session.
+
+      - name: has_purchase
+        description: TRUE if the session contained at least one purchase event.
+
+      - name: transaction_id
+        description: Transaction ID of the purchase in this session. NULL if no purchase occurred.
+
+      - name: session_revenue_usd
+        description: Total purchase revenue (USD) in this session. Zero for non-converting sessions.
+        data_tests:
+          - not_negative
+
+      - name: landing_page
+        description: URL of the first page_location recorded in the session.
+
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # int_user_spine
+  # ──────────────────────────────────────────────────────────────────────────
+  - name: int_user_spine
+    description: >
+      User-grain view. One row per user_pseudo_id.
+      Aggregates lifetime activity from stg_ga4__events:
+      first/last seen dates, first-touch channel, session counts,
+      funnel activity totals, and purchase history.
+      Feeds dim_users (materialized table in ga4_marts).
+
+    columns:
+
+      - name: user_pseudo_id
+        description: Obfuscated device identifier — primary key for the user grain.
+        data_tests:
+          - not_null
+          - unique
+
+      - name: first_seen_date
+        description: Date of the user's first recorded event.
+        data_tests:
+          - not_null
+
+      - name: last_seen_date
+        description: Date of the user's most recent recorded event.
+        data_tests:
+          - not_null
+
+      - name: user_first_touch_ts
+        description: Timestamp of first touch as reported by the GA4 user property.
+
+      - name: user_lifespan_days
+        description: Days between first_seen_date and last_seen_date.
+
+      - name: traffic_medium
+        description: First-touch acquisition medium (user-level GA4 property).
+
+      - name: traffic_source
+        description: First-touch traffic source (user-level GA4 property).
+
+      - name: traffic_campaign
+        description: First-touch UTM campaign name.
+
+      - name: first_device_category
+        description: Device category at the user's first event.
+
+      - name: first_geo_country
+        description: Country at the user's first event.
+
+      - name: total_sessions
+        description: Count of distinct session_key values for this user.
+
+      - name: total_page_views
+        description: Total page_view events across all sessions.
+
+      - name: total_view_items
+        description: Total view_item events across all sessions.
+
+      - name: total_add_to_cart
+        description: Total add_to_cart events across all sessions.
+
+      - name: total_begin_checkout
+        description: Total begin_checkout events across all sessions.
+
+      - name: total_purchase_events
+        description: Total purchase events (includes the ~23 GA4 sample rows with null transaction_id).
+
+      - name: total_orders
+        description: Count of distinct non-null transaction_ids lifetime.
+
+      - name: total_revenue_usd
+        description: Sum of purchase_revenue_usd across all purchase events.
+        data_tests:
+          - not_negative
+
+      - name: first_purchase_date
+        description: Date of the user's first purchase. NULL if never purchased.
+
+      - name: last_purchase_date
+        description: Date of the user's most recent purchase. NULL if never purchased.
+
+      - name: is_purchaser
+        description: TRUE if the user has at least one order with a non-null transaction_id.
+
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # int_funnel_events
+  # ──────────────────────────────────────────────────────────────────────────
+  - name: int_funnel_events
+    description: >
+      Event-grain view filtered to the five core purchase funnel stages:
+      session_start, view_item, add_to_cart, begin_checkout, purchase.
+      Adds funnel_stage (label) and funnel_stage_order (integer 1–5).
+      Feeds mart_daily_funnel.
+
+    columns:
+
+      - name: event_key
+        description: Surrogate key from stg_ga4__events (MD5 of user_pseudo_id, event_timestamp, event_name).
+        data_tests:
+          - not_null
+
+      - name: event_date
+        description: Calendar date of the funnel event.
+        data_tests:
+          - not_null
+
+      - name: user_pseudo_id
+        description: Obfuscated device identifier.
+        data_tests:
+          - not_null
+
+      - name: session_key
+        description: Composite session identifier (user_pseudo_id + '_' + ga_session_id).
+        data_tests:
+          - not_null
+
+      - name: funnel_stage
+        description: >
+          Funnel stage label — one of:
+          session_start, view_item, add_to_cart, begin_checkout, purchase.
+        data_tests:
+          - not_null
+          - accepted_values:
+              values:
+                - session_start
+                - view_item
+                - add_to_cart
+                - begin_checkout
+                - purchase
+
+      - name: funnel_stage_order
+        description: Integer sort key for funnel stages (1 = session_start … 5 = purchase).
+        data_tests:
+          - not_null
+
+      - name: transaction_id
+        description: Non-null only on purchase events. May be null for the known ~23 GA4 sample events.
+
+      - name: purchase_revenue_usd
+        description: Non-null only on purchase events.
