@@ -9,6 +9,26 @@
 
 ---
 
+## Screenshots
+
+**Executive Overview** — $360K revenue · 360K sessions · 270K users across 92 days of real GA4 data
+
+![Executive Overview](screenshots/portfolio/final/02_executive_overview.png)
+
+**Purchase Funnel** — 79.5% drop at View Item → Add to Cart identified as the primary optimization opportunity
+
+![Funnel](screenshots/portfolio/final/03_funnel.png)
+
+**Customer LTV by Channel** — Referral drives $3.84 revenue/user, 4× higher than organic search ($0.94)
+
+![LTV by Channel](screenshots/portfolio/final/04_ltv_channel.png)
+
+**Experiment Demo** ⚠️ simulated — End-to-end A/B testing framework: power analysis, SRM check, and two-proportion z-test on real GA4-modeled data
+
+![Experiment Demo](screenshots/portfolio/final/01_experiment_demo.png)
+
+---
+
 ## Business Questions Answered
 
 This platform answers the questions a product or growth team asks every week:
