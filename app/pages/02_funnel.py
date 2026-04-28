@@ -51,9 +51,9 @@ with col_funnel:
         template="plotly_white",
         margin=dict(l=0, r=0, t=8, b=0),
         height=360,
-        font=dict(size=13),
+        font=dict(size=11),
     )
-    st.plotly_chart(fig_funnel, use_container_width=True)
+    st.plotly_chart(fig_funnel, use_container_width=True, config={"responsive": True})
 
 with col_dropoff:
     st.subheader("Stage Drop-off")
@@ -146,7 +146,7 @@ fig_trend.update_layout(
     yaxis_tickformat=",",
 )
 fig_trend.update_traces(line_width=2)
-st.plotly_chart(fig_trend, use_container_width=True)
+st.plotly_chart(fig_trend, use_container_width=True, config={"responsive": True})
 
 st.divider()
 

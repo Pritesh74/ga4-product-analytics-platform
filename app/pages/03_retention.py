@@ -109,10 +109,10 @@ with col_heat:
         template="plotly_white",
         margin=dict(l=0, r=0, t=16, b=0),
         height=280,
-        font=dict(size=13),
+        font=dict(size=11),
         xaxis=dict(side="top"),
     )
-    st.plotly_chart(fig, use_container_width=True)
+    st.plotly_chart(fig, use_container_width=True, config={"responsive": True})
 
 with col_info:
     st.subheader("Cohort Sizes")

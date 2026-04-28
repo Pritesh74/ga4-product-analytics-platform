@@ -122,7 +122,7 @@ fig_ltv.update_layout(
     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
 )
 fig_ltv.update_traces(texttemplate="$%{y:.2f}", textposition="outside")
-st.plotly_chart(fig_ltv, use_container_width=True)
+st.plotly_chart(fig_ltv, use_container_width=True, config={"responsive": True})
 
 st.divider()
 
@@ -150,7 +150,7 @@ with col_pr:
         xaxis_tickformat=".0%",
     )
     fig_pr.update_traces(textposition="outside")
-    st.plotly_chart(fig_pr, use_container_width=True)
+    st.plotly_chart(fig_pr, use_container_width=True, config={"responsive": True})
 
 with col_rev:
     st.subheader("Total Revenue by Channel")
@@ -173,7 +173,7 @@ with col_rev:
         xaxis_tickformat=",.0f",
     )
     fig_rev.update_traces(textposition="outside")
-    st.plotly_chart(fig_rev, use_container_width=True)
+    st.plotly_chart(fig_rev, use_container_width=True, config={"responsive": True})
 
 st.divider()
 

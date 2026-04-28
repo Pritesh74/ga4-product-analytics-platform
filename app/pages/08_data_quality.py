@@ -107,7 +107,7 @@ with col_bar:
         legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
         height=280,
     )
-    st.plotly_chart(fig_tests, use_container_width=True)
+    st.plotly_chart(fig_tests, use_container_width=True, config={"responsive": True})
 
 st.divider()
 
@@ -132,7 +132,7 @@ fig_rows = px.bar(
 )
 fig_rows.update_layout(margin=dict(l=0, r=0, t=8, b=0), xaxis_tickformat=",", height=380)
 fig_rows.update_traces(textposition="outside")
-st.plotly_chart(fig_rows, use_container_width=True)
+st.plotly_chart(fig_rows, use_container_width=True, config={"responsive": True})
 
 # Full table
 display_inv = inventory[["model", "layer", "rows", "min_date", "max_date", "description"]].copy()

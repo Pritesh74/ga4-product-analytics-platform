@@ -121,7 +121,7 @@ with col_rev:
         line_width=2,
         fillcolor="rgba(0,204,150,0.15)",
     )
-    st.plotly_chart(fig_rev, use_container_width=True)
+    st.plotly_chart(fig_rev, use_container_width=True, config={"responsive": True})
 
 with col_sess:
     st.subheader("Daily Sessions vs Conversions")
@@ -149,7 +149,7 @@ with col_sess:
         yaxis=dict(title="Sessions", showgrid=True),
         yaxis2=dict(title="Conversions", overlaying="y", side="right", showgrid=False),
     )
-    st.plotly_chart(fig_sess, use_container_width=True)
+    st.plotly_chart(fig_sess, use_container_width=True, config={"responsive": True})
 
 st.divider()
 
@@ -191,7 +191,7 @@ with col_ch:
         xaxis_tickformat=",.0f",
     )
     fig_ch.update_traces(textposition="outside")
-    st.plotly_chart(fig_ch, use_container_width=True)
+    st.plotly_chart(fig_ch, use_container_width=True, config={"responsive": True})
 
     # Purchase rate footnote
     if not ch.empty:
@@ -223,7 +223,7 @@ with col_cat:
         xaxis_tickformat=",",
     )
     fig_cat.update_traces(texttemplate="%{text:,}", textposition="outside")
-    st.plotly_chart(fig_cat, use_container_width=True)
+    st.plotly_chart(fig_cat, use_container_width=True, config={"responsive": True})
 
 st.divider()
 

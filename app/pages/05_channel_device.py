@@ -58,7 +58,7 @@ tab_ch, tab_dev = st.tabs(["📣 Channel Performance", "📱 Device Performance"
 # Channel Performance
 # ══════════════════════════════════════════════════════════════════════════════
 with tab_ch:
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
 
     with col1:
         st.subheader("Sessions by Channel")
@@ -75,9 +75,9 @@ with tab_ch:
             template="plotly_white",
         )
         fig_s.update_layout(margin=dict(l=0, r=0, t=8, b=0), coloraxis_showscale=False,
-                            xaxis_tickformat=",")
+                            xaxis_tickformat=",", font=dict(size=11))
         fig_s.update_traces(textposition="outside")
-        st.plotly_chart(fig_s, use_container_width=True)
+        st.plotly_chart(fig_s, use_container_width=True, config={"responsive": True})
 
     with col2:
         st.subheader("Conversion Rate by Channel")
@@ -94,28 +94,27 @@ with tab_ch:
             template="plotly_white",
         )
         fig_cr.update_layout(margin=dict(l=0, r=0, t=8, b=0), coloraxis_showscale=False,
-                             xaxis_tickformat=".1%")
+                             xaxis_tickformat=".1%", font=dict(size=11))
         fig_cr.update_traces(textposition="outside")
-        st.plotly_chart(fig_cr, use_container_width=True)
+        st.plotly_chart(fig_cr, use_container_width=True, config={"responsive": True})
 
-    with col3:
-        st.subheader("Revenue per Session")
-        ch_rps = ch.sort_values("revenue_per_session")
-        fig_rps = px.bar(
-            ch_rps,
-            y="channel_label",
-            x="revenue_per_session",
-            orientation="h",
-            color="revenue_per_session",
-            color_continuous_scale=[[0, "#e5f5e0"], [1, "#006d2c"]],
-            labels={"channel_label": "", "revenue_per_session": "Rev / Session"},
-            text=ch_rps["revenue_per_session"].apply(fmt_currency),
-            template="plotly_white",
-        )
-        fig_rps.update_layout(margin=dict(l=0, r=0, t=8, b=0), coloraxis_showscale=False,
-                              xaxis_tickprefix="$", xaxis_tickformat=".2f")
-        fig_rps.update_traces(textposition="outside")
-        st.plotly_chart(fig_rps, use_container_width=True)
+    st.subheader("Revenue per Session")
+    ch_rps = ch.sort_values("revenue_per_session")
+    fig_rps = px.bar(
+        ch_rps,
+        y="channel_label",
+        x="revenue_per_session",
+        orientation="h",
+        color="revenue_per_session",
+        color_continuous_scale=[[0, "#e5f5e0"], [1, "#006d2c"]],
+        labels={"channel_label": "", "revenue_per_session": "Rev / Session"},
+        text=ch_rps["revenue_per_session"].apply(fmt_currency),
+        template="plotly_white",
+    )
+    fig_rps.update_layout(margin=dict(l=0, r=0, t=8, b=0), coloraxis_showscale=False,
+                          xaxis_tickprefix="$", xaxis_tickformat=".2f", font=dict(size=11))
+    fig_rps.update_traces(textposition="outside")
+    st.plotly_chart(fig_rps, use_container_width=True, config={"responsive": True})
 
     st.divider()
 
@@ -134,9 +133,9 @@ with tab_ch:
         template="plotly_white",
     )
     fig_eng.update_layout(margin=dict(l=0, r=0, t=8, b=0), showlegend=False,
-                          yaxis_tickformat=".0%")
+                          yaxis_tickformat=".0%", font=dict(size=11))
     fig_eng.update_traces(textposition="outside")
-    st.plotly_chart(fig_eng, use_container_width=True)
+    st.plotly_chart(fig_eng, use_container_width=True, config={"responsive": True})
 
     with st.expander("Channel data table"):
         display_ch = ch[["channel_label", "sessions", "unique_users",
@@ -193,9 +192,9 @@ with tab_dev:
             template="plotly_white",
         )
         fig_dv.update_layout(margin=dict(l=0, r=0, t=8, b=0), showlegend=False,
-                             yaxis_tickformat=".1%")
+                             yaxis_tickformat=".1%", font=dict(size=11))
         fig_dv.update_traces(textposition="outside")
-        st.plotly_chart(fig_dv, use_container_width=True)
+        st.plotly_chart(fig_dv, use_container_width=True, config={"responsive": True})
 
     with col_dv2:
         st.subheader("Revenue per Session by Device")
@@ -212,9 +211,9 @@ with tab_dev:
             template="plotly_white",
         )
         fig_drps.update_layout(margin=dict(l=0, r=0, t=8, b=0), showlegend=False,
-                               yaxis_tickprefix="$", yaxis_tickformat=".2f")
+                               yaxis_tickprefix="$", yaxis_tickformat=".2f", font=dict(size=11))
         fig_drps.update_traces(textposition="outside")
-        st.plotly_chart(fig_drps, use_container_width=True)
+        st.plotly_chart(fig_drps, use_container_width=True, config={"responsive": True})
 
     st.divider()
     st.subheader("Top Browsers by Session Volume")
@@ -240,6 +239,7 @@ with tab_dev:
         margin=dict(l=0, r=0, t=8, b=0),
         xaxis_tickformat=",",
         coloraxis_colorbar=dict(title="Conv.<br>Rate", tickformat=".1%"),
+        font=dict(size=11),
     )
     fig_br.update_traces(textposition="outside")
-    st.plotly_chart(fig_br, use_container_width=True)
+    st.plotly_chart(fig_br, use_container_width=True, config={"responsive": True})

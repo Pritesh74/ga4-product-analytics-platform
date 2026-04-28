@@ -56,9 +56,10 @@ total_rev = float(df_f["revenue_usd"].sum())
 total_sess = int(df_f["sessions"].sum())
 n_countries = df_f["geo_country"].nunique()
 
-k1, k2, k3, k4 = st.columns(4)
+k1, k2 = st.columns(2)
 k1.metric("Countries represented", f"{n_countries:,}")
 k2.metric("Total sessions", f"{total_sess:,}")
+k3, k4 = st.columns(2)
 k3.metric("Top country by revenue", top_country)
 k4.metric("Top country by conv. rate", top_conv_country, help="Min. 100 sessions")
 
@@ -120,7 +121,7 @@ fig_map.update_layout(
     ),
     geo=dict(showframe=False, showcoastlines=True, coastlinecolor="lightgray"),
 )
-st.plotly_chart(fig_map, use_container_width=True)
+st.plotly_chart(fig_map, use_container_width=True, config={"responsive": True})
 
 st.divider()
 
@@ -151,7 +152,7 @@ with col1:
         height=420,
     )
     fig_rev.update_traces(textposition="outside")
-    st.plotly_chart(fig_rev, use_container_width=True)
+    st.plotly_chart(fig_rev, use_container_width=True, config={"responsive": True})
 
 with col2:
     st.subheader(f"Conversion Rate – Top {top_n} by Revenue")
@@ -179,7 +180,7 @@ with col2:
         height=420,
     )
     fig_cr.update_traces(textposition="outside")
-    st.plotly_chart(fig_cr, use_container_width=True)
+    st.plotly_chart(fig_cr, use_container_width=True, config={"responsive": True})
 
 st.divider()
 

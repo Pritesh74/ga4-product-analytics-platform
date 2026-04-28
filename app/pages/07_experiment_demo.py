@@ -71,7 +71,7 @@ baseline_rate = float(df_baseline["baseline_conversion_rate"].iloc[0])
 st.divider()
 st.subheader("Experiment Design")
 
-col_d1, col_d2, col_d3 = st.columns(3)
+col_d1, col_d2 = st.columns(2)
 
 with col_d1:
     st.markdown(
@@ -103,21 +103,11 @@ Deterministic — same user always gets same variant
         """
     )
 
-with col_d3:
-    st.markdown(
-        f"""
-**Pre-experiment baseline**
-Nov 2020 checkout users: {int(df_baseline['checkout_users'].iloc[0]):,}
-Baseline conversion rate: **{baseline_rate*100:.1f}%**
-
-**Minimum detectable effect (MDE)**
-Targeting ≥ 5 pp absolute lift
-(from {baseline_rate*100:.1f}% → {(baseline_rate+0.05)*100:.1f}%)
-
-**α (significance level):** 0.05 (two-sided)
-**Power target:** 0.80
-        """
-    )
+st.markdown(
+    f"""
+**Pre-experiment baseline** · Nov 2020 checkout users: {int(df_baseline['checkout_users'].iloc[0]):,} · Baseline conversion rate: **{baseline_rate*100:.1f}%** · MDE target: ≥ 5 pp · α = 0.05 (two-sided) · Power target: 0.80
+    """
+)
 
 # ── Power Analysis ─────────────────────────────────────────────────────────────
 st.divider()
@@ -157,9 +147,10 @@ with col_pa:
         2 * p_pool * (1 - p_pool) * ((z_alpha + z_beta) ** 2) / ((p2 - p1) ** 2)
     )
 
-    pa1, pa2, pa3, pa4 = st.columns(4)
+    pa1, pa2 = st.columns(2)
     pa1.metric("Baseline rate",    f"{p1*100:.1f}%")
     pa2.metric("Target rate",      f"{p2*100:.1f}%")
+    pa3, pa4 = st.columns(2)
     pa3.metric("Required n / arm", f"{n_required:,}")
     pa4.metric("Total n required", f"{n_required*2:,}")
 
@@ -190,7 +181,7 @@ with col_pa:
         annotation_position="bottom right",
     )
     fig_power.update_layout(margin=dict(l=0, r=0, t=8, b=0), height=240)
-    st.plotly_chart(fig_power, use_container_width=True)
+    st.plotly_chart(fig_power, use_container_width=True, config={"responsive": True})
 
     if n_required <= n_ctrl:
         st.success(f"✅ Achieved power: actual n/arm ({n_ctrl:,}) ≥ required ({n_required:,})")
@@ -206,9 +197,10 @@ n_expected = n_total / 2
 chi2_stat  = (n_ctrl - n_expected)**2 / n_expected + (n_trt - n_expected)**2 / n_expected
 srm_pvalue = 1 - stats.chi2.cdf(chi2_stat, df=1)
 
-col_srm1, col_srm2, col_srm3, col_srm4 = st.columns(4)
+col_srm1, col_srm2 = st.columns(2)
 col_srm1.metric("Control n",   f"{n_ctrl:,}",  f"{n_ctrl/n_total*100:.1f}%")
 col_srm2.metric("Treatment n", f"{n_trt:,}",   f"{n_trt/n_total*100:.1f}%")
+col_srm3, col_srm4 = st.columns(2)
 col_srm3.metric("χ² statistic", f"{chi2_stat:.3f}")
 col_srm4.metric("SRM p-value",  f"{srm_pvalue:.3f}")
 
@@ -226,7 +218,7 @@ diff_rpu  = rpu_trt - rpu_ctrl
 pct_lift_conv = diff_conv / conv_ctrl if conv_ctrl > 0 else 0
 pct_lift_rpu  = diff_rpu / rpu_ctrl if rpu_ctrl > 0 else 0
 
-col_ctrl, col_trt, col_diff = st.columns(3)
+col_ctrl, col_trt = st.columns(2)
 
 with col_ctrl:
     st.markdown("#### Control")
@@ -246,15 +238,16 @@ with col_trt:
               delta=f"${diff_rpu:+.2f} vs control")
     st.metric("Total revenue",   f"${float(trt['total_revenue_usd']):,.0f}")
 
-with col_diff:
-    st.markdown("#### Lift")
-    st.metric("Relative lift (conv.)",  f"{pct_lift_conv*100:+.1f}%")
-    st.metric("Absolute lift (conv.)",  f"{diff_conv*100:+.2f} pp")
-    st.metric("Relative lift (RPU)",    f"{pct_lift_rpu*100:+.1f}%")
-    st.metric("Absolute lift (RPU)",    f"${diff_rpu:+.2f}")
-    st.metric("Revenue impact (est.)",
-              f"${diff_rpu * n_total:,.0f}",
-              help="Absolute RPU lift × total experiment users")
+st.markdown("#### Lift")
+lft1, lft2 = st.columns(2)
+lft1.metric("Relative lift (conv.)",  f"{pct_lift_conv*100:+.1f}%")
+lft2.metric("Absolute lift (conv.)",  f"{diff_conv*100:+.2f} pp")
+lft3, lft4 = st.columns(2)
+lft3.metric("Relative lift (RPU)",    f"{pct_lift_rpu*100:+.1f}%")
+lft4.metric("Absolute lift (RPU)",    f"${diff_rpu:+.2f}")
+st.metric("Revenue impact (est.)",
+          f"${diff_rpu * n_total:,.0f}",
+          help="Absolute RPU lift × total experiment users")
 
 # ── Statistical Significance Test ─────────────────────────────────────────────
 st.divider()
@@ -276,9 +269,10 @@ p_val_conv  = 2 * (1 - stats.norm.cdf(abs(z_stat)))
 ci_low      = diff_conv - 1.96 * se_obs
 ci_high     = diff_conv + 1.96 * se_obs
 
-col_zstat, col_ci, col_pval = st.columns(3)
+col_zstat, col_ci = st.columns(2)
 col_zstat.metric("Z-statistic",  f"{z_stat:.3f}")
 col_ci.metric("95% CI (diff)",  f"[{ci_low*100:+.2f}pp, {ci_high*100:+.2f}pp]")
+col_pval, _ = st.columns(2)
 col_pval.metric("p-value",      f"{p_val_conv:.4f}")
 
 # Normal curve with shaded rejection regions
@@ -312,7 +306,7 @@ fig_z.update_layout(
     height=260,
     legend=dict(orientation="h", yanchor="bottom", y=1.02),
 )
-st.plotly_chart(fig_z, use_container_width=True)
+st.plotly_chart(fig_z, use_container_width=True, config={"responsive": True})
 
 # Confidence interval forest plot
 fig_ci = go.Figure()
@@ -334,7 +328,7 @@ fig_ci.update_layout(
     height=140,
     showlegend=False,
 )
-st.plotly_chart(fig_ci, use_container_width=True)
+st.plotly_chart(fig_ci, use_container_width=True, config={"responsive": True})
 
 # Decision box
 if p_val_conv < 0.05:
@@ -360,9 +354,10 @@ p_rpu  = 2 * (1 - stats.norm.cdf(abs(z_rpu)))
 ci_rpu_low  = diff_rpu - 1.96 * se_rpu
 ci_rpu_high = diff_rpu + 1.96 * se_rpu
 
-col_rpu1, col_rpu2, col_rpu3 = st.columns(3)
+col_rpu1, col_rpu2 = st.columns(2)
 col_rpu1.metric("RPU lift",   f"${diff_rpu:+.2f}")
 col_rpu2.metric("95% CI",     f"[${ci_rpu_low:+.2f}, ${ci_rpu_high:+.2f}]")
+col_rpu3, _ = st.columns(2)
 col_rpu3.metric("p-value",    f"{p_rpu:.4f}")
 
 if p_rpu < 0.05:
@@ -423,7 +418,7 @@ if not df_daily.empty:
         height=300,
         legend=dict(orientation="h", yanchor="bottom", y=1.02),
     )
-    st.plotly_chart(fig_daily, use_container_width=True)
+    st.plotly_chart(fig_daily, use_container_width=True, config={"responsive": True})
 else:
     st.info("Daily cumulative data not available.")
 
