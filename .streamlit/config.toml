@@ -1,4 +1,7 @@
 [server]
+headless = true
+enableWebsocketCompression = false
+maxMessageSize = 50
 maxUploadSize = 10
 
 [browser]
